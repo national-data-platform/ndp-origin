@@ -1,0 +1,48 @@
+# Origin configuration for the external token exchange in bbockelm/pelican
+# PR #9. To use it, build the
+# origin image from that PR's code and mount this file in place of
+# config/origin.yaml (see the volumes of the origin service).
+Server:
+  Hostname: localhost
+  WebPort: 8444
+  TLSCertificateChain: /certs/localhost.pem
+  TLSKey: /certs/localhost-key.pem
+  TLSCACertificateFile: /certs/ca.crt
+
+# Web login through CILogon. The client ID comes from PELICAN_OIDC_CLIENTID (.env).
+OIDC:
+  Issuer: https://cilogon.org
+  ClientSecretFile: /run/secrets/cilogon-client-secret
+
+Origin:
+  EnableStandaloneMode: true
+  StorageType: posixv2
+  EnableOIDC: true
+  EnableIssuer: true
+  IssuerMode: embedded
+  Exports:
+    - FederationPrefix: /ndp
+      StoragePrefix: /data/ndp
+      Capabilities: ["Reads", "Writes", "Listings"]
+      # To trust Keycloak for this namespace only, move ExternalIssuers here.
+
+Issuer:
+  ExternalIssuers:
+    - Name: ndp-keycloak            # also the prefix of Keycloak's groups: "ndp-keycloak:"
+      IssuerURL: https://ndp-kc-test:9443/realms/NDP
+      RequiredAudiences: ["pelican-origin"]
+      RequiredClaims:
+        azp: ndp-jupyterhub         # your application's Keycloak client
+        # identity_provider: cilogon   # only if Keycloak still adds this claim
+      AutoEnroll: true              # the first exchange creates an account keyed on Keycloak's sub
+      GroupMode: claim
+      GroupClaim: groups
+      MaxTokenLifetimeSeconds: 3600 # the Keycloak token's own expiry caps this too
+
+  # Keycloak users get new accounts, so grant access through their Keycloak
+  # groups, which arrive prefixed. With the Group Membership mapper's full
+  # group path off, Keycloak's "climate" group arrives as "ndp-keycloak:climate".
+  AuthorizationTemplates:
+    - actions: ["read"]
+      prefix: /climate              # relative to the /ndp export
+      groups: ["ndp-keycloak:climate"]

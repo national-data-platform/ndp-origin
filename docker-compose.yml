@@ -1,0 +1,33 @@
+name: pelican-exchange-dev
+
+services:
+  origin:
+    image: pelican-origin:token-exchange
+    build:
+      context: ${PELICAN_SRC:-./pelican}
+      dockerfile: images/Dockerfile
+      target: origin
+    ports:
+      - "8444:8444"
+    extra_hosts:
+      - "ndp-kc-test:host-gateway"
+    environment:
+      - PELICAN_OIDC_CLIENTID
+    secrets:
+      - cilogon-client-secret
+    volumes:
+      # - ./config/origin.yaml:/etc/pelican/config.d/50-local.yaml:ro
+      - ./config/origin-pr9.yaml:/etc/pelican/config.d/50-local.yaml:ro
+      - ./certs:/certs:ro             # the entrypoint trusts /certs/*.crt
+      - ./data:/data                  # exported as /ndp from /data/ndp
+      - origin-config:/etc/pelican    # signing keys, session secret
+      - origin-data:/var/lib/pelican  # databases: users, groups, collections, issuer clients
+    restart: unless-stopped
+
+secrets:
+  cilogon-client-secret:
+    file: ./secrets/cilogon-client-secret
+
+volumes:
+  origin-config:
+  origin-data:

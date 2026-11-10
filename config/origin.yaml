@@ -1,0 +1,46 @@
+Server:
+  Hostname: localhost
+  WebPort: 8444
+  TLSCertificateChain: /certs/localhost.pem
+  TLSKey: /certs/localhost-key.pem
+  TLSCACertificateFile: /certs/ca.crt
+  # The built-in acceptable use policy stays on: users accept it at their
+  # first sign-in, and token exchange refuses accounts that have not.
+
+# Web login through CILogon. Register the callback
+#   https://localhost:8444/api/v1.0/auth/oauth/callback
+# The client ID comes from PELICAN_OIDC_CLIENTID (see .env).
+OIDC:
+  Issuer: https://cilogon.org
+  ClientSecretFile: /run/secrets/cilogon-client-secret
+
+Origin:
+  # Run without a federation: no registry or director, and no
+  # Federation.DiscoveryUrl. Clients talk to this origin directly, and it
+  # publishes its own /.well-known/pelican-configuration. Standalone mode
+  # needs one of the native storage backends, such as posixv2.
+  EnableStandaloneMode: true
+  StorageType: posixv2
+  EnableOIDC: true
+  EnableIssuer: true
+  IssuerMode: embedded
+  Exports:
+    - FederationPrefix: /ndp
+      StoragePrefix: /data/ndp
+      Capabilities: ["Reads", "Writes", "Listings"]
+
+Issuer:
+  TokenExchangeTrustedIssuers:
+    - Issuer: https://ndp-kc-test:9443/realms/NDP
+      # Accounts are found under the CILogon identity this origin recorded at
+      # sign-in, using the CILogon subject Keycloak relays in upstream_sub.
+      IdentityIssuer: https://cilogon.org
+      SubjectClaim: upstream_sub
+      Audiences: ["pelican-origin"]
+      AllowedClients: ["1Kq4bsZP7cfIQKgA"]
+      RequiredClaims:
+        - claim: azp                         # your application's Keycloak client
+          value: jupyterhub_local
+        - claim: identity_provider           # alias of the realm's CILogon provider
+          value: cilogon
+      SingleUse: true
